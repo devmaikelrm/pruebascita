@@ -1,31 +1,34 @@
-import type { Page } from 'playwright';
+import type { Page, Frame } from 'playwright';
 import type { Client, Preferences } from '../../../shared/schema.js';
 import type { IStorage } from '../../../server/storage.js';
 import type { BookingResult } from '../scheduler.js';
 import { CaptchaManager } from '../anticaptcha.js';
 import { StorageManager } from '../storage.js';
 import { AntiBlockingManager } from '../antiBlock.js';
-import { SELECTORS } from '../selectors.js';
+import { NotificationManager } from '../notify.js';
 
 export class DNIHabanaAdapter {
   private page: Page;
   private storage: IStorage;
   private captchaManager: CaptchaManager;
   private storageManager: StorageManager;
+  private notifier: NotificationManager;
 
   // Official DNI appointment URL for Habana
-  private readonly BASE_URL = 'https://www.citaconsular.es/es/hosteds/widgetdefault/2f21cd9c0d8aa26725bf8930e4691d645/bkt195382';
+  private readonly BASE_URL = process.env.WIDGET_URL || 'https://www.citaconsular.es';
 
   constructor(
     page: Page, 
     storage: IStorage, 
     captchaManager: CaptchaManager, 
-    storageManager: StorageManager
+    storageManager: StorageManager,
+    notifier: NotificationManager
   ) {
     this.page = page;
     this.storage = storage;
     this.captchaManager = captchaManager;
     this.storageManager = storageManager;
+    this.notifier = notifier;
   }
 
   async processBooking(client: Client, preferences?: Preferences): Promise<BookingResult> {
@@ -46,6 +49,7 @@ export class DNIHabanaAdapter {
           error: 'No available appointment slots found'
         };
       }
+      await this.notifier.sendSlotFound(client, 'Habana', preferences?.serviceType || 'DNI');
 
       // Step 4: Take screenshot before confirming
       const screenshotBefore = await this.takeScreenshot('before', client.id);
@@ -114,16 +118,15 @@ export class DNIHabanaAdapter {
 
   private async handleWelcomeModal(): Promise<void> {
     try {
-      // Look for welcome modal
-      const modal = await this.page.$(SELECTORS.welcomeModal.container);
-      if (modal && await modal.isVisible()) {
-        console.log('Welcome modal detected, clicking continue...');
-        
-        // Click continue button
-        const continueButton = await this.page.$(SELECTORS.welcomeModal.continueButton);
-        if (continueButton) {
-          await continueButton.click();
-          await AntiBlockingManager.waitHuman(1000, 2000);
+      // Try in main and all iframes
+      const frames: (Page|Frame)[] = [this.page, ...this.page.frames()];
+      for (const f of frames) {
+        const btn = f.getByRole('button', { name: /aceptar|accept|continuar|continue|ok/i });
+        if (await btn.first().isVisible().catch(() => false)) {
+          console.log('Welcome/consent detected, clicking continue...');
+          await btn.first().click();
+          await AntiBlockingManager.waitHuman(800, 1600);
+          break;
         }
       }
     } catch (error) {
@@ -135,31 +138,25 @@ export class DNIHabanaAdapter {
     console.log('Looking for available appointment slots...');
 
     try {
-      // Wait for slots to load
-      await this.page.waitForSelector(SELECTORS.appointmentSlots.container, { 
-        timeout: 15000 
-      });
-
-      // Look for available slots with "Huecos libres" text
-      const availableSlots = await this.page.$$(SELECTORS.appointmentSlots.availableSlot);
-      
-      if (availableSlots.length === 0) {
-        console.log('No available slots found');
+      // Quick detection of "No availability"
+      const noAvail = this.page.getByText(/no hay (citas|disponibilidad|huecos)|no slots|no availability/i);
+      if (await noAvail.first().isVisible().catch(() => false)) {
+        console.log('No available slots message visible');
         return false;
       }
 
-      // Select the first available slot (first_available mode as requested)
-      console.log(`Found ${availableSlots.length} available slots, selecting first one...`);
-      const firstSlot = availableSlots[0];
-      
-      // Get slot time for logging
-      const timeElement = await firstSlot.$(SELECTORS.appointmentSlots.slotTime);
-      const slotTime = timeElement ? await timeElement.textContent() : 'Unknown';
-      console.log(`Selecting slot at: ${slotTime}`);
-
-      await firstSlot.click();
-      await AntiBlockingManager.waitHuman(1500, 2500);
-
+      // Generic time block pattern (HH:MM) and clickable
+      const candidates = this.page.locator('text=/^([0-2]?\\d:[0-5]\\d)$/');
+      const count = await candidates.count();
+      if (count === 0) {
+        console.log('No time blocks found');
+        return false;
+      }
+      const first = candidates.first();
+      const text = await first.textContent();
+      console.log(`Selecting first visible slot: ${text ?? 'desconocido'}`);
+      await first.click();
+      await AntiBlockingManager.waitHuman(1200, 1800);
       return true;
 
     } catch (error) {
@@ -172,41 +169,27 @@ export class DNIHabanaAdapter {
     console.log(`Performing login for client ${client.name}...`);
 
     try {
-      // Wait for login form
-      await this.page.waitForSelector(SELECTORS.loginForm.container, { timeout: 10000 });
+      const userField = this.page.getByLabel(/usuario|login|user/i).or(this.page.getByPlaceholder(/usuario|user|login/i)).or(this.page.locator('input[name*="user" i], input[id*="user" i]'));
+      await userField.first().fill(client.username);
+      await AntiBlockingManager.waitHuman(300, 600);
 
-      // Fill username
-      const usernameField = await this.page.$(SELECTORS.loginForm.usernameField);
-      if (usernameField) {
-        await usernameField.fill(client.username);
-        await AntiBlockingManager.waitHuman(500, 1000);
-      }
+      const passField = this.page.getByLabel(/contraseña|password|clave/i).or(this.page.getByPlaceholder(/contraseña|password|clave/i)).or(this.page.locator('input[type="password"]'));
+      await passField.first().fill(client.password);
+      await AntiBlockingManager.waitHuman(300, 600);
 
-      // Fill password
-      const passwordField = await this.page.$(SELECTORS.loginForm.passwordField);
-      if (passwordField) {
-        await passwordField.fill(client.password);
-        await AntiBlockingManager.waitHuman(500, 1000);
-      }
-
-      // Check for captcha before submitting
       const captchaSolution = await this.captchaManager.handleCaptcha(this.page, client);
       if (captchaSolution) {
         await this.captchaManager.submitSolution(this.page, captchaSolution);
       }
 
-      // Submit form
-      const submitButton = await this.page.$(SELECTORS.loginForm.submitButton);
-      if (submitButton) {
-        await submitButton.click();
-        await AntiBlockingManager.waitHuman(2000, 4000);
-      }
+      const submit = this.page.getByRole('button', { name: /acceder|confirmar|entrar|login|submit|aceptar/i }).or(this.page.locator('input[type="submit"]'));
+      await submit.first().click();
+      await AntiBlockingManager.waitHuman(1200, 2400);
 
-      // Check for login errors
-      const errorElement = await this.page.$(SELECTORS.loginForm.errorMessage);
-      if (errorElement && await errorElement.isVisible()) {
-        const errorText = await errorElement.textContent();
-        throw new Error(`Login error: ${errorText}`);
+      const loginError = this.page.getByText(/error|credenciales|incorrectas|incorrect|denegado/i);
+      if (await loginError.first().isVisible().catch(() => false)) {
+        const txt = await loginError.first().textContent();
+        throw new Error(`Login error: ${txt ?? 'desconocido'}`);
       }
 
       return true;
@@ -221,18 +204,23 @@ export class DNIHabanaAdapter {
     try {
       console.log('Waiting for booking confirmation...');
       
-      // Wait for success page indicators
-      await this.page.waitForSelector(SELECTORS.successPage.successMessage, { 
-        timeout: 15000 
-      });
+      // Wait for success text in ES or EN
+      await this.page.getByText(/reserva (realizada|confirmada)|booking confirmed|reservation (successful|confirmed)/i).waitFor({ timeout: 15000 });
 
       // Extract confirmation details
       const confirmationData: any = {};
 
-      // Try to extract all available confirmation details
-      const detailsContainer = await this.page.$(SELECTORS.successPage.confirmationDetails);
-      if (detailsContainer) {
-        confirmationData.rawHtml = await detailsContainer.innerHTML();
+      const content = await this.page.textContent('body');
+      if (content) {
+        confirmationData.rawText = content;
+        const serviceMatch = content.match(/Servicio\s*:\s*(.+)/i);
+        if (serviceMatch) confirmationData.service = serviceMatch[1].trim();
+        const loginMatch = content.match(/Login\s*:\s*(.+)/i) || content.match(/Usuario\s*:\s*(.+)/i);
+        if (loginMatch) confirmationData.login = loginMatch[1].trim();
+        const nameMatch = content.match(/Nombre\s*:\s*(.+)/i) || content.match(/Name\s*:\s*(.+)/i);
+        if (nameMatch) confirmationData.name = nameMatch[1].trim();
+        const cancelMatch = content.match(/cancelar la cita.*?(https?:\S+)/i);
+        if (cancelMatch) confirmationData.cancelUrl = cancelMatch[1];
       }
 
       return confirmationData;
@@ -246,15 +234,20 @@ export class DNIHabanaAdapter {
   private async extractAppointmentDetails(): Promise<{ date: Date; time: string }> {
     try {
       // Extract date and time from success page
-      const pageContent = await this.page.content();
-      
-      // Look for date patterns (this would need refinement based on actual page structure)
-      const dateMatch = pageContent.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-      const timeMatch = pageContent.match(/(\d{1,2}:\d{2})/);
+      const pageContent = await this.page.textContent('body');
 
-      const date = dateMatch ? new Date(dateMatch[1]) : new Date();
-      const time = timeMatch ? timeMatch[1] : '00:00';
-
+      let date = new Date();
+      let time = '00:00';
+      if (pageContent) {
+        const timeMatch = pageContent.match(/(\d{1,2}:\d{2})/);
+        if (timeMatch) time = timeMatch[1];
+        const dateMatch = pageContent.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+        if (dateMatch) {
+          const [d, m, y] = dateMatch[1].split(/[\/\-]/).map(Number);
+          const yyyy = y < 100 ? 2000 + y : y;
+          date = new Date(yyyy, (m || 1) - 1, d || 1);
+        }
+      }
       return { date, time };
 
     } catch (error) {
@@ -279,8 +272,8 @@ export class DNIHabanaAdapter {
         return true;
       }
 
-      const errorElement = await this.page.$(SELECTORS.errorPage.errorMessage);
-      return errorElement && await errorElement.isVisible();
+      const blocked = this.page.getByText(/bloquead|error de sistema|system error|blocked/i);
+      return await blocked.first().isVisible().catch(() => false);
 
     } catch (error) {
       return false;
