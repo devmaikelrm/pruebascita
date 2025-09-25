@@ -1,52 +1,44 @@
 import type { Page } from 'playwright';
 import type { IStorage } from '../../server/storage.js';
 import type { Client } from '../../shared/schema.js';
+import { NotificationManager } from './notify.js';
 
 export class CaptchaManager {
   private storage: IStorage;
+  private notifier: NotificationManager;
 
-  constructor(storage: IStorage) {
+  private readonly provider = process.env.CAPTCHA_PROVIDER; // e.g. '2captcha' | 'capmonster'
+  private readonly apiKey = process.env.CAPTCHA_API_KEY;
+  private readonly timeoutMs = (Number(process.env.CAPTCHA_TIMEOUT_SECONDS) || 45) * 1000;
+
+  constructor(storage: IStorage, notifier: NotificationManager) {
     this.storage = storage;
+    this.notifier = notifier;
   }
 
   /**
-   * Handle captcha detection and resolution
+   * Handle captcha with strategy: auto-then-skip
    */
   async handleCaptcha(page: Page, client: Client): Promise<string | null> {
     try {
-      // Check if captcha is present
       const captchaPresent = await this.detectCaptcha(page);
-      if (!captchaPresent) {
-        return null; // No captcha needed
+      if (!captchaPresent) return null;
+
+      if (!this.provider || !this.apiKey) {
+        await this.notifier.sendCaptchaSkipped(client, 'Sin servicio automático configurado');
+        return null; // Skip quickly; scheduler should proceed without blocking the queue
       }
 
-      console.log(`Captcha detected for client ${client.name}, initiating HIL process...`);
+      // Attempt automatic solving (placeholder hook)
+      const solution = await this.solveAutomatically(page);
+      if (solution) return solution;
 
-      // Take screenshot of captcha
-      const screenshotPath = await this.captureScreenshot(page, client.id);
-
-      // Create captcha request in database (Human-in-the-Loop)
-      const captchaRequest = await this.storage.createCaptchaRequest({
-        clientId: client.id,
-        screenshotPath,
-        status: 'pending'
-      });
-
-      console.log(`Captcha request created: ${captchaRequest.id}, waiting for operator...`);
-
-      // Wait for human operator to solve via Telegram bot
-      const solution = await this.waitForSolution(captchaRequest.id);
-
-      if (solution) {
-        console.log(`Captcha solution received: ${solution}`);
-        return solution;
-      } else {
-        throw new Error('Captcha solution timeout or failed');
-      }
-
+      await this.notifier.sendCaptchaSkipped(client, 'Tiempo agotado intentando resolver automáticamente');
+      return null;
     } catch (error) {
-      console.error('Captcha handling failed:', error);
-      throw error;
+      console.error('Error en manejo de captcha:', error);
+      await this.notifier.sendCaptchaSkipped(client, 'Fallo operativo manejando captcha');
+      return null;
     }
   }
 
@@ -57,14 +49,14 @@ export class CaptchaManager {
     try {
       // Look for common captcha indicators
       const captchaSelectors = [
-        '.captcha',
-        '.g-recaptcha', 
+        '.g-recaptcha',
         '.recaptcha',
+        '#g-recaptcha',
         'img[src*="captcha"]',
-        '[id*="captcha"]',
-        '[class*="captcha"]',
-        '.cf-challenge-form', // Cloudflare
-        '#challenge-form'
+        '[id*="captcha" i]',
+        '[class*="captcha" i]',
+        '.cf-challenge-form',
+        '#challenge-form',
       ];
 
       for (const selector of captchaSelectors) {
@@ -81,9 +73,7 @@ export class CaptchaManager {
     }
   }
 
-  /**
-   * Capture screenshot for human verification
-   */
+  /** Captura de pantalla del captcha (para auditoría) */
   private async captureScreenshot(page: Page, clientId: string): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `captcha_${clientId}_${timestamp}.png`;
@@ -106,41 +96,18 @@ export class CaptchaManager {
     return screenshotPath;
   }
 
-  /**
-   * Wait for human operator to provide captcha solution
-   */
-  private async waitForSolution(captchaRequestId: string, timeoutMs: number = 300000): Promise<string | null> {
-    const startTime = Date.now();
-    const checkInterval = 2000; // Check every 2 seconds
-
-    while (Date.now() - startTime < timeoutMs) {
-      try {
-        // Check if captcha request has been solved
-        const request = await this.storage.getClient(captchaRequestId); // This should be a getCaptchaRequest method
-        // Note: We need to add getCaptchaRequest method to storage interface
-        
-        // For now, simulate checking - this would need proper implementation
-        // when storage interface is extended with captcha request methods
-        
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-        
-        // TODO: Implement proper checking when storage interface is complete
-        // if (request && request.status === 'solved' && request.solution) {
-        //   return request.solution;
-        // }
-
-      } catch (error) {
-        console.error('Error checking captcha solution:', error);
-      }
+  /** Intento automático (gancho para proveedor externo) */
+  private async solveAutomatically(page: Page): Promise<string | null> {
+    // Hook for real implementation (2captcha/capmonster). For now, respect timeout and return null.
+    const start = Date.now();
+    while (Date.now() - start < this.timeoutMs) {
+      await new Promise((r) => setTimeout(r, 1500));
+      // Place where we would poll provider result
     }
-
-    console.log('Captcha solution timeout reached');
     return null;
   }
 
-  /**
-   * Submit captcha solution to the page
-   */
+  /** Envía la solución del captcha a la página */
   async submitSolution(page: Page, solution: string): Promise<boolean> {
     try {
       // Find captcha input field

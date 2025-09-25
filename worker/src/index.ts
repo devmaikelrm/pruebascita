@@ -10,15 +10,16 @@ console.log('Spanish Consular Worker starting...');
 // Create scheduler instance
 const scheduler = new AppointmentScheduler(storage);
 
-// Self-rescheduling timer for 6-10 minute intervals as specified
+// Self-rescheduling timer with jitter between CHECK_MIN_MINUTES and CHECK_MAX_MINUTES
 let isRunning = false;
 
 async function scheduleNextRun() {
   if (isRunning) return;
   
-  // Generate random delay between 6-10 minutes (360-600 seconds)
-  const minDelay = 6 * 60 * 1000; // 6 minutes
-  const maxDelay = 10 * 60 * 1000; // 10 minutes
+  const minM = Number(process.env.CHECK_MIN_MINUTES || 6);
+  const maxM = Number(process.env.CHECK_MAX_MINUTES || 10);
+  const minDelay = Math.max(1, minM) * 60 * 1000;
+  const maxDelay = Math.max(minDelay, maxM * 60 * 1000);
   const delay = minDelay + Math.random() * (maxDelay - minDelay);
   
   console.log(`Next appointment cycle in ${Math.round(delay/60000)} minutes...`);

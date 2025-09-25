@@ -8,6 +8,7 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "postinstall": "npx playwright install chromium",
     "discover": "tsx src/discover.ts"
   },
   "dependencies": {
@@ -20,7 +21,8 @@
     "@neondatabase/serverless": "^0.9.0",
     "drizzle-orm": "^0.33.0",
     "ws": "^8.14.2",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

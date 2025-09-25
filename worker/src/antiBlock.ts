@@ -37,8 +37,10 @@ export class AntiBlockingManager {
   private getCooldownDuration(reason: string): number {
     // Different cooldown periods based on error type
     if (reason.includes('error-cita.aspx')) {
-      // System blocking - longer cooldown (2-4 hours)
-      return (2 + Math.random() * 2) * 60 * 60 * 1000;
+      // System blocking - configurable hours (default 2-4 hours)
+      const baseHours = Number(process.env.COOLDOWN_HOURS || 2);
+      const jitter = Math.min(2, baseHours * 0.5);
+      return (baseHours + Math.random() * jitter) * 60 * 60 * 1000;
     }
     
     if (reason.includes('captcha')) {
