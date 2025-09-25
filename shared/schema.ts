@@ -28,7 +28,7 @@ export const clients = pgTable("clients", {
 // Preferences table - client preferences for appointments
 export const preferences = pgTable("preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").notNull().references(() => clients.id),
+  clientId: varchar("client_id").notNull().references(() => clients.id).unique(),
   serviceType: text("service_type").notNull().default("dni_habana"), // "dni_habana", etc.
   preferredTimes: jsonb("preferred_times"), // ["morning", "afternoon", etc.]
   urgency: integer("urgency").notNull().default(1), // 1-5 priority
