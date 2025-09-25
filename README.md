@@ -59,6 +59,17 @@ cd bot
 npm run dev
 ```
 
+## Automatización
+- CI (GitHub Actions): cada push/PR construye `worker` y `bot` con Chromium Playwright listo.
+  - Workflow: `.github/workflows/ci.yml`
+- Servicio en VPS (systemd):
+  - Copiar ejemplos: `deploy/systemd/worker.service.example` y `deploy/systemd/bot.service.example` a `/etc/systemd/system/` (renombrando sin `.example`).
+  - Ajustar `WorkingDirectory` y rutas a `.env` si difieren.
+  - Habilitar e iniciar:
+    - `sudo systemctl daemon-reload`
+    - `sudo systemctl enable worker.service bot.service`
+    - `sudo systemctl start worker.service bot.service`
+
 ## Comportamiento del Worker
 - Estrategia “primera disponible”: al detectar un hueco (HH:MM), selecciona el primero visible.
 - Bienvenida/consentimiento: busca botones por texto en ES/EN y dentro de iframes si aplica.
@@ -107,4 +118,3 @@ npm run dev
 ## Notas
 - Gancho de proveedor de captcha preparado; no activo por defecto.
 - Listo para VPS con navegador real (Chromium Playwright).
-

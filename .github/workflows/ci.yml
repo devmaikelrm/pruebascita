@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-worker:
+    name: Build worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      - name: Install root deps
+        run: npm ci
+      - name: Install worker deps
+        run: |
+          cd worker
+          npm ci
+      - name: Install Playwright Chromium
+        run: |
+          cd worker
+          npx playwright install chromium
+      - name: Build worker
+        run: |
+          cd worker
+          npm run build
+
+  build-bot:
+    name: Build bot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      - name: Install root deps
+        run: npm ci
+      - name: Install bot deps
+        run: |
+          cd bot
+          npm ci
+      - name: Build bot
+        run: |
+          cd bot
+          npm run build
+
