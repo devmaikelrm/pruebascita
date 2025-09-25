@@ -94,6 +94,8 @@ export class DNIHabanaAdapter {
 
       // Check if this is a blocking error
       if (await this.detectBlockingError()) {
+        const hours = Number(process.env.COOLDOWN_HOURS || 2);
+        await this.notifier.sendBlockedCooldown(client, hours);
         return {
           success: false,
           error: 'Account blocked - error-cita.aspx detected'
