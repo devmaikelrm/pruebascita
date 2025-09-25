@@ -19,9 +19,9 @@ export class AppointmentScheduler {
   constructor(storage: IStorage) {
     this.storage = storage;
     this.antiBlock = new AntiBlockingManager(storage);
-    this.captchaManager = new CaptchaManager(storage);
-    this.storageManager = new StorageManager();
     this.notificationManager = new NotificationManager();
+    this.captchaManager = new CaptchaManager(storage, this.notificationManager);
+    this.storageManager = new StorageManager();
   }
 
   async processQueue(): Promise<void> {
@@ -130,7 +130,7 @@ export class AppointmentScheduler {
       switch (serviceType) {
         case 'dni_habana':
         default:
-          adapter = new DNIHabanaAdapter(page, this.storage, this.captchaManager, this.storageManager);
+          adapter = new DNIHabanaAdapter(page, this.storage, this.captchaManager, this.storageManager, this.notificationManager);
           break;
       }
 
