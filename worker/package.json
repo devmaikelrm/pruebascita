@@ -1,6 +1,6 @@
 {
   "name": "spanishconsular-worker",
-  "version": "1.0.0", 
+  "version": "1.0.0",
   "description": "Playwright worker for Spanish consular appointment automation",
   "main": "dist/index.js",
   "type": "module",
@@ -22,7 +22,9 @@
     "drizzle-orm": "^0.33.0",
     "ws": "^8.14.2",
     "axios": "^1.6.0",
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.0",
+    "drizzle-zod": "^0.7.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
