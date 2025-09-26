@@ -1,6 +1,6 @@
 import TelegramBot, { Message, CallbackQuery } from 'node-telegram-bot-api';
-import type { Operator, Client, InsertOperator, InsertClient } from '../../shared/schema.js';
-import type { IStorage } from '../../server/storage.js';
+import type { Operator, Client, Preferences, InsertOperator, InsertClient } from '../../shared/schema.js';
+import type { IStorage } from './storage.js';
 
 export class TelegramCommands {
   private bot: TelegramBot;
@@ -144,8 +144,18 @@ To get started, please register as an operator using /operador
         return;
       }
 
-      const keyboard = clients.map(client => [{
-        text: `${client.name} (Priority: ${client.priority || 'N/A'})`,
+      const preferencesByClient = new Map<string, Preferences>();
+      await Promise.all(
+        clients.map(async (client) => {
+          const prefs = await this.storage.getClientPreferences(client.id);
+          if (prefs) {
+            preferencesByClient.set(client.id, prefs);
+          }
+        })
+      );
+
+      const keyboard = clients.map((client) => [{
+        text: `${client.name} (Priority: ${preferencesByClient.get(client.id)?.urgency ?? 'N/A'})`,
         callback_data: `client_${client.id}`
       }]);
 
@@ -294,19 +304,24 @@ To get started, please register as an operator using /operador
     try {
       // Parse client data from message
       const lines = data.split('\n').map(line => line.trim());
-      const clientData: any = { operatorId: operator.id };
+      const clientData: Record<string, string> = {};
+      let urgencyInput: number | undefined;
 
       for (const line of lines) {
-        if (line.toLowerCase().startsWith('name:')) {
+        const normalized = line.toLowerCase();
+        if (normalized.startsWith('name:')) {
           clientData.name = line.substring(5).trim();
-        } else if (line.toLowerCase().startsWith('email:')) {
+        } else if (normalized.startsWith('email:')) {
           clientData.email = line.substring(6).trim();
-        } else if (line.toLowerCase().startsWith('username:')) {
+        } else if (normalized.startsWith('username:')) {
           clientData.username = line.substring(9).trim();
-        } else if (line.toLowerCase().startsWith('password:')) {
+        } else if (normalized.startsWith('password:')) {
           clientData.password = line.substring(9).trim();
-        } else if (line.toLowerCase().startsWith('priority:')) {
-          clientData.urgency = parseInt(line.substring(9).trim()) || 3;
+        } else if (normalized.startsWith('priority:')) {
+          const parsed = parseInt(line.substring(9).trim(), 10);
+          if (!Number.isNaN(parsed)) {
+            urgencyInput = parsed;
+          }
         }
       }
 
@@ -315,10 +330,31 @@ To get started, please register as an operator using /operador
         return;
       }
 
-      const client = await this.storage.createClient(clientData);
-      
+      const insertClient: InsertClient = {
+        name: clientData.name,
+        email: clientData.email && clientData.email.length > 0 ? clientData.email : null,
+        username: clientData.username,
+        password: clientData.password,
+        operatorId: operator.id,
+        isActive: true
+      };
+
+      const client = await this.storage.createClient(insertClient);
+
+      const urgency = typeof urgencyInput === 'number' && Number.isFinite(urgencyInput)
+        ? Math.min(Math.max(urgencyInput, 1), 5)
+        : 3;
+
+      await this.storage.createOrUpdatePreferences({
+        clientId: client.id,
+        serviceType: 'dni_habana',
+        urgency,
+        preferredTimes: null,
+        notes: null
+      });
+
       await this.bot.sendMessage(chatId, 
-        `✅ Client added successfully!\n\n*Name:* ${client.name}\n*ID:* ${client.id}\n*Priority:* ${clientData.urgency || 3}`,
+        `✅ Client added successfully!\n\n*Name:* ${client.name}\n*ID:* ${client.id}\n*Priority:* ${urgency}`,
         { parse_mode: 'Markdown' }
       );
 
@@ -328,7 +364,6 @@ To get started, please register as an operator using /operador
       await this.bot.sendMessage(chatId, '❌ Error creating client. Please check the format and try again.');
     }
   }
-
   private async startCaptchaSolution(chatId: number, captchaId: string): Promise<void> {
     this.userStates.set(chatId.toString(), { 
       action: 'waiting_captcha_solution', 

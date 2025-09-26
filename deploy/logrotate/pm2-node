@@ -1,0 +1,11 @@
+﻿/var/log/pm2/*.log {
+  daily
+  rotate 14
+  compress
+  delaycompress
+  missingok
+  notifempty
+  copytruncate
+  dateext
+}
+
