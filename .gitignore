@@ -3,4 +3,7 @@ dist
 .DS_Store
 server/public
 vite.config.ts.*
-*.tar.gz
+*.tar.gz# Env y llaves locales
+.env
+*/.env
+.qodo/
