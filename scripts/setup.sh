@@ -71,7 +71,7 @@ cp -f "$LOCAL_REPO_ROOT/scripts/deploy.sh" "$SCRIPTS_DIR/deploy.sh"
 cp -f "$LOCAL_REPO_ROOT/scripts/update.sh" "$SCRIPTS_DIR/update.sh"
 chmod +x "$SCRIPTS_DIR"/*.sh
 
-cp -f "$LOCAL_REPO_ROOT/ecosystem.config.js" "$REPO_DIR/ecosystem.config.js"
+cp -f "$LOCAL_REPO_ROOT/ecosystem.config.cjs" "$REPO_DIR/ecosystem.config.cjs"
 mkdir -p "$REPO_DIR/healthcheck"
 rsync -rt "$LOCAL_REPO_ROOT/healthcheck/" "$REPO_DIR/healthcheck/"
 cp -f "$LOCAL_REPO_ROOT/bot/.env.example" "$REPO_DIR/bot/.env.example"
@@ -129,7 +129,7 @@ echo '[setup] Compilando worker y bot...'
 run_as_target pnpm -C worker build
 run_as_target pnpm -C bot build
 
-echo '[setup] Ejecutando pm2 startup (anote la instrucci�n)'
+echo '[setup] Ejecutando pm2 startup (anote la instruccion)'
 STARTUP_OUTPUT=$(pm2 startup systemd -u "$TARGET_USER" --hp "$TARGET_HOME")
 printf '\n%s\n' "$STARTUP_OUTPUT"
 

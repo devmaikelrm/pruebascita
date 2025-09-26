@@ -1,4 +1,4 @@
-﻿# Guía de Despliegue (VPS Ubuntu)
+# Guía de Despliegue (VPS Ubuntu)
 
 ## Requisitos del servidor
 - Arquitectura x86_64
@@ -47,7 +47,7 @@ Copia `bot/.env.example` y `worker/.env.example` a `.env` en cada directorio y c
 ## Healthcheck
 - Servicio HTTP simple en `HEALTHCHECK_PORT` (default 8080).
 - Responde `{"status":"ok"}`.
-- Puedes cambiar el puerto exportando `HEALTHCHECK_PORT` antes de ejecutar `setup.sh` o editando `ecosystem.config.js`.
+- Puedes cambiar el puerto exportando `HEALTHCHECK_PORT` antes de ejecutar `setup.sh` o editando `ecosystem.config.cjs`.
 
 ## Logs
 - `pm2 logs worker`
@@ -66,7 +66,7 @@ Copia `bot/.env.example` y `worker/.env.example` a `.env` en cada directorio y c
 - Considera supervisión y backups de la base de datos.
 
 ## Referencias Rápidas
-- Reiniciar servicios manualmente: `pm2 restart ecosystem.config.js`
+- Reiniciar servicios manualmente: `pm2 restart ecosystem.config.cjs`
 - Detener servicios: `pm2 stop all`
 - Estado PM2: `pm2 status`
 - El repositorio vive en `/opt/CitaConsulares/`.

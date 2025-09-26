@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_DIR=/opt/CitaConsulares
-ECOSYSTEM_FILE="$REPO_DIR/ecosystem.config.js"
+ECOSYSTEM_FILE="$REPO_DIR/ecosystem.config.cjs"
 TARGET_USER="${SUDO_USER:-root}"
 
 if [[ $EUID -ne 0 ]]; then
