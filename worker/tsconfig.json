@@ -1,32 +1,27 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
-    "noEmit": false,
-    "outDir": "./dist",
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["../shared/*"],
-      "@shared/schema": ["../shared/schema.ts"],
-      "drizzle-orm": ["node_modules/drizzle-orm/index.d.ts"],
-      "drizzle-orm/*": ["node_modules/drizzle-orm/*"],
-      "drizzle-zod": ["node_modules/drizzle-zod/dist/index.d.ts"],
-      "zod": ["node_modules/zod/index.d.ts"]
-    }
-  },
-  "include": [
-    "./src/**/*.ts",
-    "../shared/**/*.ts",
-    "../server/**/*.ts"
-  ],
-  "exclude": [
-    "./dist",
-    "./node_modules"
-  ]
+    "compilerOptions":  {
+                            "target":  "ES2022",
+                            "module":  "NodeNext",
+                            "moduleResolution":  "NodeNext",
+                            "strict":  true,
+                            "esModuleInterop":  true,
+                            "skipLibCheck":  true,
+                            "allowSyntheticDefaultImports":  true,
+                            "resolveJsonModule":  true,
+                            "outDir":  "dist",
+                            "rootDir":  "src",
+                            "types":  [
+                                          "node"
+                                      ],
+                            "baseUrl":  "."
+                        },
+    "include":  [
+                    "src/**/*"
+                ],
+    "exclude":  [
+                    "dist",
+                    "node_modules",
+                    "../server/**",
+                    "../client/**"
+                ]
 }

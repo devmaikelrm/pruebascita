@@ -1,4 +1,4 @@
-import type { IStorage } from '../../server/storage.js';
+import type { IStorage } from '@repo/shared/storage';
 
 export class AntiBlockingManager {
   private storage: IStorage;

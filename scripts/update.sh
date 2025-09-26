@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 REPO_DIR=/opt/CitaConsulares
@@ -36,9 +36,18 @@ cd "$REPO_DIR"
 echo '[update] Actualizando repositorio...'
 git pull --ff-only
 
+if grep -R -F "../server" worker/src >/dev/null 2>&1; then
+  echo "[update] Error: el worker importa server; mueve esos tipos a shared/ antes de compilar." >&2
+  exit 1
+fi
+
 echo '[update] Instalando dependencias con pnpm...'
-run_as_target pnpm -C worker install
-run_as_target pnpm -C bot install
+run_as_target pnpm install -r
+
+if [[ -d shared ]]; then
+  echo '[update] Compilando paquete shared...'
+  run_as_target pnpm -C shared build
+fi
 
 echo '[update] Compilando proyectos...'
 run_as_target pnpm -C worker build
@@ -53,4 +62,3 @@ else
 fi
 
 echo '[update] Actualizacion completada.'
-

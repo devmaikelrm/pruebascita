@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
-import type { IStorage } from '../../server/storage.js';
-import type { Client } from '../../shared/schema.js';
+import type { IStorage } from '@repo/shared/storage';
+import type { Client } from '@repo/shared/schema';
 import { NotificationManager } from './notify.js';
 
 export class CaptchaManager {

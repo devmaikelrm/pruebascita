@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 REPO_DIR=/opt/CitaConsulares
@@ -76,6 +76,31 @@ mkdir -p "$REPO_DIR/healthcheck"
 rsync -rt "$LOCAL_REPO_ROOT/healthcheck/" "$REPO_DIR/healthcheck/"
 cp -f "$LOCAL_REPO_ROOT/bot/.env.example" "$REPO_DIR/bot/.env.example"
 cp -f "$LOCAL_REPO_ROOT/worker/.env.example" "$REPO_DIR/worker/.env.example"
+if [[ ! -f $REPO_DIR/bot/.env ]]; then
+  cat <<'EOF' > $REPO_DIR/bot/.env
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ADMIN_CHAT=
+TZ=America/Havana
+EOF
+  chown ${TARGET_USER}:${TARGET_USER} $REPO_DIR/bot/.env
+fi
+
+if [[ ! -f $REPO_DIR/worker/.env ]]; then
+  cat <<'EOF' > $REPO_DIR/worker/.env
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ADMIN_CHAT=
+WIDGET_URL=
+CHECK_INTERVAL_MIN=6
+CHECK_INTERVAL_MAX=10
+COOLDOWN_BLOCK_HOURS=3
+CAPTCHA_API_KEY=
+CAPTCHA_TIMEOUT_SEC=25
+TZ=America/Havana
+DATABASE_URL=
+EOF
+  chown ${TARGET_USER}:${TARGET_USER} $REPO_DIR/worker/.env
+fi
+
 
 cp -f "$LOCAL_REPO_ROOT/deploy/logrotate/pm2-node" /etc/logrotate.d/pm2-node
 
@@ -84,19 +109,28 @@ chown "$TARGET_USER":"$TARGET_USER" /var/log/pm2
 
 cd "$REPO_DIR"
 
-echo '[setup] Instalando dependencias con pnpm...'
-run_as_target pnpm -C worker install
-run_as_target pnpm -C bot install
+if grep -R -F "../server" worker/src >/dev/null 2>&1; then
+  echo "[setup] Error: el worker importa server; mueve esos tipos a shared/ antes de desplegar." >&2
+  exit 1
+fi
+
+echo '[setup] Instalando dependencias de todos los paquetes (pnpm -r)...'
+run_as_target pnpm install -r
+
+if [[ -d shared ]]; then
+  echo '[setup] Compilando paquete shared...'
+  run_as_target pnpm -C shared build
+fi
 
 echo '[setup] Instalando Playwright Chromium...'
 run_as_target pnpm -C worker exec playwright install --with-deps chromium
 
-echo '[setup] Compilando proyectos...'
+echo '[setup] Compilando worker y bot...'
 run_as_target pnpm -C worker build
 run_as_target pnpm -C bot build
 
-echo '[setup] Ejecutando pm2 startup (anote la instruccion)'
+echo '[setup] Ejecutando pm2 startup (anote la instrucci�n)'
 STARTUP_OUTPUT=$(pm2 startup systemd -u "$TARGET_USER" --hp "$TARGET_HOME")
 printf '\n%s\n' "$STARTUP_OUTPUT"
 
-echo '[setup] Finalizado. Recuerde crear bot/.env y worker/.env antes de desplegar.'
+echo '[setup] Finalizado. Recuerde actualizar /opt/CitaConsulares/bot/.env y /opt/CitaConsulares/worker/.env con sus credenciales antes de desplegar.'

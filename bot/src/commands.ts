@@ -1,6 +1,6 @@
 import TelegramBot, { Message, CallbackQuery } from 'node-telegram-bot-api';
-import type { Operator, Client, Preferences, InsertOperator, InsertClient } from '../../shared/schema.js';
-import type { IStorage } from './storage.js';
+import type { Operator, Client, Preferences, InsertOperator, InsertClient } from '@repo/shared/schema';
+import type { IStorage } from '@repo/shared/storage';
 
 export class TelegramCommands {
   private bot: TelegramBot;

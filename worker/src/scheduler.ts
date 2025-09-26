@@ -1,6 +1,6 @@
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
-import type { IStorage } from '../../server/storage.js';
-import type { Queue, Client, Preferences } from '../../shared/schema.js';
+import type { IStorage } from '@repo/shared/storage';
+import type { Queue, Client, Preferences } from '@repo/shared/schema';
 import { DNIHabanaAdapter } from './adapters/dni_habana.js';
 import { AntiBlockingManager } from './antiBlock.js';
 import { CaptchaManager } from './anticaptcha.js';

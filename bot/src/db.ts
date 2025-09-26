@@ -2,7 +2,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 // Note: Using relative import to shared schema from parent directory
-import * as schema from "../../shared/schema.js";
+import * as schema from "@repo/shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 

@@ -1,7 +1,7 @@
 import axios from 'axios';
 // @ts-ignore - form-data for Node multipart
 import FormData from 'form-data';
-import type { Client } from '../../shared/schema.js';
+import type { Client } from '@repo/shared/schema';
 import type { BookingResult } from './scheduler.js';
 
 export class NotificationManager {

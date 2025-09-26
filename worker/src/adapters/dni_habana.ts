@@ -1,6 +1,6 @@
 import type { Page, Frame } from 'playwright';
-import type { Client, Preferences } from '../../../shared/schema.js';
-import type { IStorage } from '../../../server/storage.js';
+import type { Client, Preferences } from '@repo/shared/schema';
+import type { IStorage } from '@repo/shared/storage';
 import type { BookingResult } from '../scheduler.js';
 import { CaptchaManager } from '../anticaptcha.js';
 import { StorageManager } from '../storage.js';

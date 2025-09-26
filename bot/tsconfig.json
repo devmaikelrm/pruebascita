@@ -1,40 +1,19 @@
-﻿{
+{
     "extends":  "../tsconfig.json",
     "compilerOptions":  {
                             "noEmit":  false,
                             "outDir":  "./dist",
-                            "module":  "ESNext",
-                            "moduleResolution":  "bundler",
+                            "module":  "NodeNext",
+                            "moduleResolution":  "NodeNext",
                             "tsBuildInfoFile":  "./node_modules/.cache/tsbuildinfo",
                             "types":  [
                                           "node"
                                       ],
                             "baseUrl":  ".",
-                            "paths":  {
-                                          "@shared/*":  [
-                                                            "../shared/*"
-                                                        ],
-                                          "@shared/schema":  [
-                                                                 "../shared/schema.ts"
-                                                             ],
-                                          "drizzle-orm":  [
-                                                              "node_modules/drizzle-orm/index.d.ts"
-                                                          ],
-                                          "drizzle-orm/*":  [
-                                                                "node_modules/drizzle-orm/*"
-                                                            ],
-                                          "drizzle-zod":  [
-                                                              "node_modules/drizzle-zod/dist/index.d.ts"
-                                                          ],
-                                          "zod":  [
-                                                      "node_modules/zod/index.d.ts"
-                                                  ]
-                                      },
                             "allowImportingTsExtensions":  false
                         },
     "include":  [
-                    "./src/**/*.ts",
-                    "../shared/**/*.ts"
+                    "./src/**/*.ts"
                 ],
     "exclude":  [
                     "./dist",
