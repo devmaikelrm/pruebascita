@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/**": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    }
+  ]
+}
+
