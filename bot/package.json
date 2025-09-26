@@ -2,12 +2,12 @@
   "name": "spanishconsular-bot",
   "version": "1.0.0",
   "description": "Telegram bot for Spanish consular appointment management",
-  "main": "dist/bot/src/index.js",
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc -p ./tsconfig.json",
-    "start": "node dist/bot/src/index.js",
+    "start": "node dist/index.js",
     "prebuild": "rimraf dist"
   },
   "dependencies": {
