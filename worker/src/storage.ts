@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -26,12 +25,17 @@ export class StorageManager {
   async saveScreenshot(buffer: Buffer, filename: string): Promise<string> {
     const filepath = path.join(this.screenshotDir, filename);
     
-    // Compress image to reduce storage space
-    const compressedBuffer = await sharp(buffer)
-      .png({ quality: 80, compressionLevel: 6 })
-      .toBuffer();
-
-    await fs.writeFile(filepath, compressedBuffer);
+    try {
+      // Lazy import sharp; if not available, fallback to raw write
+      const { default: sharp } = await import('sharp');
+      const compressedBuffer = await sharp(buffer)
+        .png({ quality: 80, compressionLevel: 6 })
+        .toBuffer();
+      await fs.writeFile(filepath, compressedBuffer);
+    } catch (e) {
+      console.warn('[storage] sharp not available, saving raw screenshot');
+      await fs.writeFile(filepath, buffer);
+    }
     return filepath;
   }
 

@@ -2,3 +2,4 @@ packages:
   - bot
   - worker
   - shared
+  - panel

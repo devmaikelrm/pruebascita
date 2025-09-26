@@ -25,6 +25,15 @@ if (!TELEGRAM_BOT_TOKEN) {
 
 // Create bot instance
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+// Log polling errors to diagnose silent failures
+bot.on('polling_error', (err) => {
+  console.error('Polling error:', err instanceof Error ? err.message : err);
+});
+// Optional webhook error log (even if not using webhooks)
+// @ts-ignore
+bot.on('webhook_error', (err) => {
+  console.error('Webhook error:', err instanceof Error ? err.message : err);
+});
 
 // Initialize commands handler
 const commands = new TelegramCommands(bot, storage);
@@ -50,9 +59,18 @@ bot.on('message', async (msg) => {
 
   if (!text) return;
 
+  console.log(`Received message from ${chatId}: ${text}`);
+
   // Restricción: si hay lista de IDs permitidos, solo responder a esos chats
   if (allowedIds.size > 0 && !allowedIds.has(chatId.toString())) {
-    return; // ignora silenciosamente
+    // Permitir que /start muestre el ID para autorizar al usuario
+    if (text.startsWith('/start')) {
+      await bot.sendMessage(
+        chatId,
+        `Acceso restringido. Tu Telegram chat ID es: ${chatId}\nCompártelo con el administrador para habilitarte.`,
+      );
+    }
+    return; // ignora otros mensajes
   }
 
   try {
