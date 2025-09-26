@@ -9,7 +9,11 @@ export class CaptchaManager {
 
   private readonly provider = process.env.CAPTCHA_PROVIDER; // e.g. '2captcha' | 'capmonster'
   private readonly apiKey = process.env.CAPTCHA_API_KEY;
-  private readonly timeoutMs = (Number(process.env.CAPTCHA_TIMEOUT_SECONDS) || 45) * 1000;
+  // Prefer CAPTCHA_TIMEOUT_SEC (as documented/.env.example); fallback to legacy *_SECONDS
+  private readonly timeoutMs = (() => {
+    const sec = Number(process.env.CAPTCHA_TIMEOUT_SEC || process.env.CAPTCHA_TIMEOUT_SECONDS || '45');
+    return (isNaN(sec) || sec <= 0 ? 45 : sec) * 1000;
+  })();
 
   constructor(storage: IStorage, notifier: NotificationManager) {
     this.storage = storage;

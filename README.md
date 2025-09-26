@@ -34,16 +34,16 @@ Cada paquete incluye su `.env.example` con nombres unificados. Copia y ajusta:
 - `bot/.env.example` → `bot/.env`
 
 Variables clave (worker):
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT`
 - `DATABASE_URL`
 - `WIDGET_URL` (URL del widget Bookitit de la oficina/servicio)
-- `CHECK_MIN_MINUTES`, `CHECK_MAX_MINUTES` (intervalo con jitter)
-- `COOLDOWN_HOURS` (bloqueos por sistema)
-- `CAPTCHA_PROVIDER`, `CAPTCHA_API_KEY`, `CAPTCHA_TIMEOUT_SECONDS`
+- `CHECK_INTERVAL_MIN`, `CHECK_INTERVAL_MAX` (intervalo con jitter)
+- `COOLDOWN_BLOCK_HOURS` (bloqueos por sistema)
+- `CAPTCHA_PROVIDER`, `CAPTCHA_API_KEY`, `CAPTCHA_TIMEOUT_SEC`
 - `TZ`
 
 Variables clave (bot):
-- `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`, `TELEGRAM_ADMIN_CHAT_ID`
+- `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`, `TELEGRAM_ADMIN_CHAT`
 
 ## Ejecución
 - Worker (modo desarrollo):

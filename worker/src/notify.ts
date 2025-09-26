@@ -6,7 +6,9 @@ import type { BookingResult } from './scheduler.js';
 
 export class NotificationManager {
   private readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
-  private readonly adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+  // Backward-compatible: prefer TELEGRAM_ADMIN_CHAT (as in .env.example),
+  // but accept TELEGRAM_ADMIN_CHAT_ID if present in existing setups.
+  private readonly adminChatId = process.env.TELEGRAM_ADMIN_CHAT || process.env.TELEGRAM_ADMIN_CHAT_ID;
 
   private get apiBase() {
     return `https://api.telegram.org/bot${this.botToken}`;

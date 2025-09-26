@@ -7,6 +7,16 @@ import { TelegramCommands } from './commands.js';
 dotenv.config();
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const ADMIN_CHAT_1 = process.env.TELEGRAM_ADMIN_CHAT;
+const ADMIN_CHAT_2 = process.env.TELEGRAM_ADMIN_CHAT_2;
+const ADMIN_CHAT_LIST = process.env.TELEGRAM_ADMIN_CHAT_LIST; // optional comma-separated
+
+const allowedIds = new Set<string>();
+if (ADMIN_CHAT_LIST) {
+  ADMIN_CHAT_LIST.split(',').map((s) => s.trim()).filter(Boolean).forEach((id) => allowedIds.add(id));
+}
+if (ADMIN_CHAT_1) allowedIds.add(ADMIN_CHAT_1);
+if (ADMIN_CHAT_2) allowedIds.add(ADMIN_CHAT_2);
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error('TELEGRAM_BOT_TOKEN environment variable is required');
@@ -40,7 +50,18 @@ bot.on('message', async (msg) => {
 
   if (!text) return;
 
+  // Restricción: si hay lista de IDs permitidos, solo responder a esos chats
+  if (allowedIds.size > 0 && !allowedIds.has(chatId.toString())) {
+    return; // ignora silenciosamente
+  }
+
   try {
+    // Short-circuit commands that don't need DB lookup
+    if (text.startsWith('/start') || text.startsWith('/help')) {
+      await commands.handleCommand(msg, undefined);
+      return;
+    }
+
     // Check if user is registered as operator
     const operator = await storage.getOperatorByTelegramId(chatId.toString());
     
@@ -67,6 +88,10 @@ bot.on('message', async (msg) => {
 
 // Handle callback queries (inline buttons)
 bot.on('callback_query', async (query) => {
+  // Restricción por ID de chat/usuario para callbacks
+  if (allowedIds.size > 0 && !allowedIds.has(query.from.id.toString())) {
+    return;
+  }
   try {
     const operator = await storage.getOperatorByTelegramId(query.from.id.toString());
     if (!operator) {
