@@ -33,6 +33,10 @@ Cada paquete incluye su `.env.example` con nombres unificados. Copia y ajusta:
 - `worker/.env.example` → `worker/.env`
 - `bot/.env.example` → `bot/.env`
 
+Guías detalladas por paquete:
+- Ver `bot/README_ENV.md` para variables, ejemplos y operación del bot.
+- Ver `worker/README_ENV.md` para variables, ejemplos y operación del worker.
+
 Variables clave (worker):
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT`
 - `DATABASE_URL`
@@ -69,6 +73,20 @@ npm run dev
     - `sudo systemctl daemon-reload`
     - `sudo systemctl enable worker.service bot.service`
     - `sudo systemctl start worker.service bot.service`
+
+## Despliegue en VPS (resumen)
+- Guía completa: ver `DEPLOY.md`.
+- Primer despliegue (con PM2 y healthcheck):
+  - `sudo bash scripts/setup.sh` (instala Node 20, pnpm, PM2, Playwright y prepara `/opt/CitaConsulares`).
+  - Completar `/opt/CitaConsulares/bot/.env` y `/opt/CitaConsulares/worker/.env`.
+  - `sudo bash /opt/CitaConsulares/scripts/deploy.sh` (inicia `bot`, `worker` y `healthcheck`).
+- Actualizaciones:
+  - `cd /opt/CitaConsulares && sudo bash scripts/update.sh` (pull, instalar deps, build y `pm2 reload`).
+- PM2 útil:
+  - `pm2 status`, `pm2 logs bot`, `pm2 logs worker`
+  - `pm2 restart ecosystem.config.cjs` o `pm2 restart bot worker`
+- Healthcheck:
+  - Servicio HTTP simple en `:8080/health` (configurable). Responde `{"status":"ok"}`.
 
 ## Comportamiento del Worker
 - Estrategia “primera disponible”: al detectar un hueco (HH:MM), selecciona el primero visible.
