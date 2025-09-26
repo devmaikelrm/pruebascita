@@ -1,4 +1,4 @@
-﻿module.exports = {
+﻿export default {
   apps: [
     {
       name: 'worker',
@@ -37,4 +37,3 @@
     }
   ]
 };
-
