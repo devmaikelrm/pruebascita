@@ -1,3 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+.vercel/
+
+# Environment and secrets
+.env
+**/.env
+*.env.local
+
+# Editor/OS files
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+pnpm-debug.log*
+npm-debug.log*
+
+# Backups
+*.bak
+
 node_modules
 dist
 .DS_Store
