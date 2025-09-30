@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════════════════
+  INSTALACIÓN AUTOMÁTICA - COPIA Y PEGA ESTE COMANDO EN TU VPS
+═══════════════════════════════════════════════════════════════════
+
+PASO 1: Conectarse a la VPS
+────────────────────────────────────────────────────────────────────
+
+ssh root@91.99.171.11
+
+Contraseña: 3i4jE9UwnXR3
+
+
+PASO 2: Copiar y pegar este comando (TODO EN UNA LÍNEA)
+────────────────────────────────────────────────────────────────────
+
+wget -O deploy-master.sh https://raw.githubusercontent.com/devmaikelrm/CitaConsulares/main/deploy-master.sh && chmod +x deploy-master.sh && bash deploy-master.sh
+
+
+═══════════════════════════════════════════════════════════════════
+
+¡ESO ES TODO! El script te pedirá las credenciales y hará el resto.
+
+Credenciales que necesitarás tener a mano:
+- Token del bot de Telegram (@BotFather)
+- Tu Chat ID de Telegram (@userinfobot)
+- DATABASE_URL de Supabase (Settings → Database → Connection String)
+
+═══════════════════════════════════════════════════════════════════
+
