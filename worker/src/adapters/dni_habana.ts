@@ -1,10 +1,11 @@
 import type { Page, Frame } from 'playwright';
-import type { Client, Preferences } from '@repo/shared/schema';
-import type { IStorage } from '@repo/shared/storage';
+import type { Client, Preferences } from '@repo/shared';
+import type { IStorage } from '@repo/shared';
 import type { BookingResult } from '../scheduler.js';
+import { AntiBlockingManager } from '../antiBlock.js';
 import { CaptchaManager } from '../anticaptcha.js';
 import { StorageManager } from '../storage.js';
-import { AntiBlockingManager } from '../antiBlock.js';
+import { waitHuman } from '../utils.js';
 import { NotificationManager } from '../notify.js';
 
 export class DNIHabanaAdapter {
@@ -115,7 +116,7 @@ export class DNIHabanaAdapter {
       waitUntil: 'networkidle',
       timeout: 30000 
     });
-    await AntiBlockingManager.waitHuman(2000, 3000);
+    await waitHuman(2000, 3000);
   }
 
   private async handleWelcomeModal(): Promise<void> {
@@ -127,7 +128,7 @@ export class DNIHabanaAdapter {
         if (await btn.first().isVisible().catch(() => false)) {
           console.log('Welcome/consent detected, clicking continue...');
           await btn.first().click();
-          await AntiBlockingManager.waitHuman(800, 1600);
+          await waitHuman(800, 1600);
           break;
         }
       }
@@ -158,7 +159,7 @@ export class DNIHabanaAdapter {
       const text = await first.textContent();
       console.log(`Selecting first visible slot: ${text ?? 'desconocido'}`);
       await first.click();
-      await AntiBlockingManager.waitHuman(1200, 1800);
+      await waitHuman(1200, 1800);
       return true;
 
     } catch (error) {
@@ -173,11 +174,11 @@ export class DNIHabanaAdapter {
     try {
       const userField = this.page.getByLabel(/usuario|login|user/i).or(this.page.getByPlaceholder(/usuario|user|login/i)).or(this.page.locator('input[name*="user" i], input[id*="user" i]'));
       await userField.first().fill(client.username);
-      await AntiBlockingManager.waitHuman(300, 600);
+      await waitHuman(300, 600);
 
       const passField = this.page.getByLabel(/contraseña|password|clave/i).or(this.page.getByPlaceholder(/contraseña|password|clave/i)).or(this.page.locator('input[type="password"]'));
       await passField.first().fill(client.password);
-      await AntiBlockingManager.waitHuman(300, 600);
+      await waitHuman(300, 600);
 
       const captchaSolution = await this.captchaManager.handleCaptcha(this.page, client);
       if (captchaSolution) {
@@ -186,7 +187,7 @@ export class DNIHabanaAdapter {
 
       const submit = this.page.getByRole('button', { name: /acceder|confirmar|entrar|login|submit|aceptar/i }).or(this.page.locator('input[type="submit"]'));
       await submit.first().click();
-      await AntiBlockingManager.waitHuman(1200, 2400);
+      await waitHuman(1200, 2400);
 
       const loginError = this.page.getByText(/error|credenciales|incorrectas|incorrect|denegado/i);
       if (await loginError.first().isVisible().catch(() => false)) {

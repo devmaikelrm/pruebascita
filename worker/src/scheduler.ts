@@ -1,8 +1,8 @@
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
-import type { IStorage } from '@repo/shared/storage';
-import type { Queue, Client, Preferences } from '@repo/shared/schema';
+import type { IStorage } from '@repo/shared';
+import type { Queue, Client, Preferences } from '@repo/shared';
 import { DNIHabanaAdapter } from './adapters/dni_habana.js';
-import { AntiBlockingManager } from './antiBlock.js';
+import { AntiBlockingManager, CooldownReason } from './antiBlock.js';
 import { CaptchaManager } from './anticaptcha.js';
 import { StorageManager } from './storage.js';
 import { NotificationManager } from './notify.js';
@@ -164,7 +164,7 @@ export class AppointmentScheduler {
         // Handle different failure scenarios
         if (result.error?.includes('error-cita.aspx') || result.error?.includes('blocked')) {
           // Account/IP blocked - add to cooldown
-          await this.antiBlock.addCooldown('account', client.username, result.error);
+          await this.antiBlock.addCooldown('account', client.username, CooldownReason.SYSTEM_BLOCK);
           console.log(`❄️ Added cooldown for client ${client.name}: ${result.error}`);
         }
 
