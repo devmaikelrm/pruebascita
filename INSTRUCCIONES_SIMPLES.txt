@@ -1,0 +1,136 @@
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║     INSTRUCCIONES PARA INSTALAR EN TU VPS                 ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+PASO 1: Conectarse a tu VPS
+═══════════════════════════════════════════════════════════
+
+Abre tu terminal (PowerShell, CMD, o PuTTY) y ejecuta:
+
+    ssh root@91.99.171.11
+
+Contraseña: 3i4jE9UwnXR3
+
+
+PASO 2: Descargar y ejecutar el script maestro
+═══════════════════════════════════════════════════════════
+
+Una vez dentro de la VPS, copia y pega estos comandos:
+
+    wget https://raw.githubusercontent.com/devmaikelrm/CitaConsulares/main/deploy-master.sh
+    chmod +x deploy-master.sh
+    bash deploy-master.sh
+
+
+PASO 3: Proporcionar credenciales
+═══════════════════════════════════════════════════════════
+
+El script te pedirá:
+
+1. Token del bot de Telegram
+   → Ve a @BotFather en Telegram
+   → Envía /mybots → Selecciona tu bot → API Token
+   → Copia el token (formato: 123456789:ABC...)
+
+2. Tu Chat ID de Telegram
+   → Ve a @userinfobot en Telegram
+   → Envía cualquier mensaje
+   → Copia el número que te da
+
+3. DATABASE_URL de Supabase
+   → Ve a supabase.com → Tu proyecto
+   → Settings → Database → Connection String (URI)
+   → Copia la URL completa
+
+4. WIDGET_URL (opcional)
+   → Presiona Enter para omitir por ahora
+
+
+PASO 4: Esperar a que termine
+═══════════════════════════════════════════════════════════
+
+El script tardará 5-10 minutos en:
+✓ Instalar Node.js, pnpm, PM2
+✓ Clonar el repositorio
+✓ Instalar dependencias
+✓ Compilar todo
+✓ Configurar servicios
+✓ Iniciar el bot
+
+
+PASO 5: Verificar que funciona
+═══════════════════════════════════════════════════════════
+
+Ejecuta:
+
+    pm2 status
+
+Deberías ver:
+- bot (online)
+- worker (online)
+- healthcheck (online)
+
+Luego abre Telegram, busca tu bot y envía /start
+
+
+PASO 6: Configurar base de datos
+═══════════════════════════════════════════════════════════
+
+1. Ve a supabase.com → Tu proyecto
+2. SQL Editor
+3. Copia y pega el contenido de:
+   https://raw.githubusercontent.com/devmaikelrm/CitaConsulares/main/scripts/db-init.sql
+4. Click en "Run"
+
+
+PASO 7: Configurar deploy automático (GitHub Actions)
+═══════════════════════════════════════════════════════════
+
+1. Ve a: https://github.com/devmaikelrm/CitaConsulares/settings/secrets/actions
+
+2. Agrega estos 3 secrets:
+
+   VPS_HOST = 91.99.171.11
+   VPS_USER = root
+   VPS_PASSWORD = 3i4jE9UwnXR3
+
+3. ¡Listo! Ahora cada push a main se desplegará automáticamente
+
+
+COMANDOS ÚTILES
+═══════════════════════════════════════════════════════════
+
+Ver estado:
+    pm2 status
+
+Ver logs:
+    pm2 logs bot
+    pm2 logs worker
+
+Reiniciar:
+    pm2 restart all
+
+Actualizar código:
+    cd /opt/CitaConsulares
+    bash scripts/update.sh
+
+
+¿PROBLEMAS?
+═══════════════════════════════════════════════════════════
+
+Ver logs de error:
+    pm2 logs --err --lines 100
+
+Reiniciar todo:
+    pm2 restart all
+
+Revisar guía completa:
+    https://github.com/devmaikelrm/CitaConsulares/blob/main/TROUBLESHOOTING.md
+
+
+═══════════════════════════════════════════════════════════
+¡ESO ES TODO! En 10 minutos tendrás todo funcionando 🚀
+═══════════════════════════════════════════════════════════
+
