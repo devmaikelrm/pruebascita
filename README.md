@@ -4,6 +4,35 @@ Sistema monorepo para búsqueda y reserva automática de la primera cita disponi
 
 Importante: este proyecto automatiza navegación web. Úsalo responsablemente, cumpliendo términos del servicio y normativa aplicable.
 
+## 🚀 Instalación Rápida en VPS (Recomendado)
+
+**¿Quieres tener todo funcionando en 10 minutos?** Usa el script de instalación automática:
+
+```bash
+# 1. Conectarse a tu VPS
+ssh root@TU_IP_VPS
+
+# 2. Descargar y ejecutar el script maestro
+wget https://raw.githubusercontent.com/devmaikelrm/CitaConsulares/main/deploy-master.sh
+chmod +x deploy-master.sh
+bash deploy-master.sh
+```
+
+El script instalará y configurará **TODO automáticamente**:
+- ✅ Node.js 20, pnpm, PM2
+- ✅ Repositorio y dependencias
+- ✅ Playwright Chromium
+- ✅ Archivos .env con tus credenciales
+- ✅ Corrección SSL para Supabase
+- ✅ Servicios PM2 con auto-inicio
+- ✅ GitHub Actions para deploy automático
+
+**Documentación completa:**
+- 📖 [RESUMEN_EJECUTIVO.md](RESUMEN_EJECUTIVO.md) - Resumen completo
+- 📋 [INSTRUCCIONES_SIMPLES.txt](INSTRUCCIONES_SIMPLES.txt) - Instrucciones paso a paso
+- 📚 [GUIA_VPS_COMPLETA.md](GUIA_VPS_COMPLETA.md) - Guía detallada
+- 🔧 [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Solución de problemas
+
 ## Paquetes
 - `worker/`: Worker Playwright que detecta huecos y reserva automáticamente.
 - `bot/`: Bot de Telegram solo para operadores (alta de operadores, estado, utilidades).
