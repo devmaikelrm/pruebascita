@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertOperatorSchema, insertQueueSchema, insertAppointmentSchema, insertCaptchaRequestSchema, insertPreferencesSchema } from "@repo/shared/schema";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Operators routes
@@ -264,6 +266,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Logs routes (read-only): expose last N lines of PM2 logs
+  app.get("/api/logs", (_req, res) => {
+    res.json({ processes: ["api", "bot", "worker"], hint: "/api/logs/:name?lines=200&type=out|error" });
+  });
+
+  app.get("/api/logs/:name", (req, res) => {
+    try {
+      const allowed = new Set(["api", "bot", "worker"]);
+      const name = String(req.params.name || "");
+      if (!allowed.has(name)) {
+        return res.status(400).json({ error: "Invalid process name" });
+      }
+
+      const lines = Math.min(2000, Math.max(1, parseInt(String(req.query.lines || "200"), 10) || 200));
+      const type = String(req.query.type || "out");
+      const filename = type === "error" ? `${name}.error.log` : `${name}.out.log`;
+      const logPath = path.resolve("/var/log/pm2", filename);
+      if (!fs.existsSync(logPath)) {
+        return res.status(404).json({ error: "Log file not found", path: logPath });
+      }
+      const content = fs.readFileSync(logPath, "utf8");
+      const tail = content.split(/\r?\n/).slice(-lines).join("\n");
+      res.set("Content-Type", "text/plain").send(tail);
+    } catch (err) {
+      console.error("Error reading logs:", err);
+      res.status(500).json({ error: "Failed to read logs" });
     }
   });
 

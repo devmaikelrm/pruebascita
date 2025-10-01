@@ -107,7 +107,7 @@ export class AppointmentScheduler {
       // Initialize browser if needed
       if (!this.browser) {
         this.browser = await chromium.launch({ 
-          headless: true,
+          headless: false,
           args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -117,8 +117,9 @@ export class AppointmentScheduler {
         });
       }
 
-      const context = await this.browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+const context = await this.browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        recordVideo: { dir: 'videos/' } // Enable video recording
       });
 
       const page = await context.newPage();

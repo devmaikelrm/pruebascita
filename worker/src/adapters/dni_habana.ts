@@ -38,13 +38,15 @@ export class DNIHabanaAdapter {
     console.log(`Starting DNI Habana booking process for ${client.name}`);
 
     try {
-      // Step 1: Navigate to the booking widget
-      await this.navigateToBookingPage();
+      // Step 1 & 2: Perform the new full navigation flow to get to the widget
+      await this.navigateToWidgetFromStart();
 
-      // Step 2: Handle welcome modal if present
+      // Step 3: Handle welcome/continue modals on the new page context
+      // The existing handleWelcomeModal is robust enough to handle both modals.
       await this.handleWelcomeModal();
 
-      // Step 3: Find and select first available appointment slot
+      // Step 4: Find and select first available appointment slot
+      // This now runs on the correct popup page because this.page was reassigned
       const slotSelected = await this.selectFirstAvailableSlot();
       if (!slotSelected) {
         return {
@@ -53,7 +55,7 @@ export class DNIHabanaAdapter {
         };
       }
 
-      // Discovery mode? Notify and hand off manual continuation instead of auto-confirm
+      // The rest of the logic remains the same...
       const discovery = String(process.env.DISCOVERY_MODE ?? 'true').toLowerCase() === 'true';
       if (discovery) {
         const screenshotBefore = await this.takeScreenshot('before', client.id);
@@ -73,13 +75,10 @@ export class DNIHabanaAdapter {
         };
       }
 
-      // Normal flow: notify, screenshot and proceed with login
       await this.notifier.sendSlotFound(client, 'Habana', preferences?.serviceType || 'DNI');
 
-      // Step 4: Take screenshot before confirming
       const screenshotBefore = await this.takeScreenshot('before', client.id);
 
-      // Step 5: Fill login credentials and submit
       const loginSuccess = await this.performLogin(client);
       if (!loginSuccess) {
         return {
@@ -88,7 +87,6 @@ export class DNIHabanaAdapter {
         };
       }
 
-      // Step 6: Wait for and verify success page
       const confirmationData = await this.waitForConfirmation();
       if (!confirmationData) {
         return {
@@ -97,10 +95,7 @@ export class DNIHabanaAdapter {
         };
       }
 
-      // Step 7: Take screenshot of success page
       const screenshotAfter = await this.takeScreenshot('after', client.id);
-
-      // Step 8: Extract appointment details
       const appointmentDetails = await this.extractAppointmentDetails();
 
       console.log(`✅ DNI Habana booking completed successfully for ${client.name}`);
@@ -117,7 +112,6 @@ export class DNIHabanaAdapter {
     } catch (error) {
       console.error(`❌ DNI Habana booking failed for ${client.name}:`, error);
 
-      // Check if this is a blocking error
       if (await this.detectBlockingError()) {
         const hours = Number(process.env.COOLDOWN_HOURS || 2);
         await this.notifier.sendBlockedCooldown(client, hours);
@@ -134,13 +128,35 @@ export class DNIHabanaAdapter {
     }
   }
 
-  private async navigateToBookingPage(): Promise<void> {
-    console.log('Navigating to DNI Habana booking page...');
-    await this.page.goto(this.BASE_URL, {
-      waitUntil: 'networkidle',
-      timeout: 30000
-    });
-    await waitHuman(2000, 3000);
+  private async navigateToWidgetFromStart(): Promise<void> {
+    console.log('[Adapter] Starting full navigation flow from government portal...');
+    const START_URL = 'https://www.exteriores.gob.es/es/ServiciosAlCiudadano/Paginas/Servicios-consulares.aspx';
+    const page = this.page; // This is the original page from the constructor
+
+    await page.goto(START_URL, { waitUntil: 'networkidle' });
+
+    await page.getByLabel('Países y territorios').selectOption('Cuba');
+    await page.getByLabel('Categorías servicios').selectOption('Certificados');
+    await page.getByLabel('Delegaciones').selectOption('166');
+    await page.getByLabel('Servicios consulares').selectOption('Certificado de nacimiento');
+
+    const acceptButton = page.getByRole('button', { name: 'Aceptar' });
+    if(await acceptButton.isVisible({timeout: 3000})){
+        await acceptButton.click();
+    }
+
+    await page.getByRole('button', { name: 'Buscar' }).click();
+
+    await page.waitForLoadState('networkidle');
+    const page1Promise = page.waitForEvent('popup');
+    await page.getByRole('link', { name: 'Solicitar certificación de Nacimiento para DNI Se abre en ventana nueva' }).click();
+    
+    // CRITICAL: Re-assign this.page to the new popup window
+    this.page = await page1Promise;
+    console.log('[Adapter] Popup window opened. Page context has been reassigned.');
+    
+    // Wait for the new page to be ready for interaction
+    await this.page.waitForLoadState('domcontentloaded');
   }
 
   private async handleWelcomeModal(): Promise<void> {

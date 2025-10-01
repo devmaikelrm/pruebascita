@@ -1,7 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import { db } from './db.js';
-import { storage } from './storage.js';
+import { createDatabaseStorage } from '@repo/shared/storage';
 import { TelegramCommands } from './commands.js';
 
 dotenv.config();
@@ -138,3 +138,4 @@ process.on('SIGINT', () => {
 });
 
 console.log('Spanish Consular Bot is running! 🤖');
+

@@ -1,6 +1,9 @@
 import TelegramBot, { Message, CallbackQuery } from 'node-telegram-bot-api';
 import type { Operator, Client, Preferences, InsertOperator, InsertClient } from '@repo/shared/schema';
 import type { IStorage } from '@repo/shared/storage';
+import { exec as _exec } from 'child_process';
+import { promisify } from 'util';
+const exec = promisify(_exec);
 
 export class TelegramCommands {
   private bot: TelegramBot;
@@ -14,7 +17,8 @@ export class TelegramCommands {
 
   async handleCommand(msg: Message, operator: Operator | undefined): Promise<void> {
     const chatId = msg.chat.id;
-    const command = msg.text?.split(' ')[0];
+    const raw = msg.text?.split(' ')[0] || '';
+    const command = raw.split('@')[0].toLowerCase();
 
     switch (command) {
       case '/start':
@@ -38,7 +42,14 @@ export class TelegramCommands {
       case '/queue':
         await this.handleQueueCommand(chatId, operator);
         break;
-      case '/help':
+      case '/prueba':
+      case '/video':
+        await this.handleTestCommand(chatId, operator);
+        break;
+      case '/prueba':
+        await this.handleTestCommand(chatId, operator);
+        break;
+      case '/prueba':\n        await this.handleTestCommand(chatId, operator);\n        break;\n      case '/video':\n        await this.handleTestCommand(chatId, operator);\n        break;\n      case '/help':
         await this.handleHelpCommand(chatId);
         break;
       default:
@@ -198,6 +209,28 @@ To get started, please register as an operator using /operador
     } catch (error) {
       console.error('Error fetching status:', error);
       await this.bot.sendMessage(chatId, '❌ Error fetching system status.');
+    }
+  }
+
+  private async handleTestCommand(chatId: number, operator: Operator | undefined): Promise<void> {
+    if (!operator) return;
+    try {
+      const now = new Date();
+      await this.bot.sendMessage(chatId, `▶️ Iniciando prueba a las ${now.toLocaleString()}`);
+      const env = [
+        `DATABASE_URL=${process.env.DATABASE_URL || ''}`,
+        `TELEGRAM_BOT_TOKEN=${process.env.TELEGRAM_BOT_TOKEN || ''}`,
+        `TELEGRAM_ADMIN_CHAT=${process.env.TELEGRAM_ADMIN_CHAT || ''}`,
+        `TELEGRAM_ADMIN_CHAT_LIST=${process.env.TELEGRAM_ADMIN_CHAT_LIST || ''}`,
+      ].join(' ');
+      // Ejecuta demo y luego envío del último video (con conversión a MP4 y borrado)
+      const cmd = `${env} bash -lc 'cd /opt/CitaConsulares/worker && pnpm run demo && pnpm run send-video'`;
+      await exec(cmd, { timeout: 10 * 60 * 1000 });
+      const done = new Date();
+      await this.bot.sendMessage(chatId, `✅ Prueba finalizada a las ${done.toLocaleString()} (revisa el video en Telegram).`);
+    } catch (error) {
+      console.error('Error en prueba:', error);
+      await this.bot.sendMessage(chatId, '❌ Error ejecutando la prueba. Revisa logs o intenta de nuevo.');
     }
   }
 
@@ -418,10 +451,13 @@ To get started, please register as an operator using /operador
 *Notes:* ${preferences?.notes || 'None'}
       `;
 
-      await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+      await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
     } catch (error) {
       console.error('Error fetching client details:', error);
       await this.bot.sendMessage(chatId, '❌ Error fetching client details.');
     }
   }
 }
+
+
+
