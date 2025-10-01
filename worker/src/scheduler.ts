@@ -129,7 +129,10 @@ export class AppointmentScheduler {
 
       switch (serviceType) {
         case 'dni_habana':
+        case 'notaria_habana':
+        case 'notaria':
         default:
+          // For now, these services share the same flow (Bookitit). Adapter is generic enough.
           adapter = new DNIHabanaAdapter(page, this.storage, this.captchaManager, this.storageManager, this.notificationManager);
           break;
       }
@@ -162,21 +165,51 @@ export class AppointmentScheduler {
         console.log(`✅ Appointment booked successfully for ${client.name}`);
       } else {
         // Handle different failure scenarios
-        if (result.error?.includes('error-cita.aspx') || result.error?.includes('blocked')) {
-          // Account/IP blocked - add to cooldown
+        const err = result.error || '';
+
+        if (err.includes('error-cita.aspx') || err.toLowerCase().includes('blocked')) {
+          // Account/IP blocked - add to cooldown and mark failed
           await this.antiBlock.addCooldown('account', client.username, CooldownReason.SYSTEM_BLOCK);
-          console.log(`❄️ Added cooldown for client ${client.name}: ${result.error}`);
+          console.log(`❄️ Added cooldown for client ${client.name}: ${err}`);
+
+          await this.storage.updateQueueItem(queueItem.id, {
+            status: 'failed',
+            attempts: queueItem.attempts + 1,
+            lastAttempt: new Date(),
+            error: err
+          });
+        } else if (
+          err.includes('No available appointment slots found') ||
+          err.includes('No time blocks found') ||
+          err.includes('Discovery mode')
+        ) {
+          // Soft failure: re-schedule as pending to keep 24/7 checks
+          const minM = Number(process.env.CHECK_MIN_MINUTES || 6);
+          const maxM = Number(process.env.CHECK_MAX_MINUTES || 10);
+          const minDelay = Math.max(1, minM) * 60 * 1000;
+          const maxDelay = Math.max(minDelay, maxM * 60 * 1000);
+          const delayMs = minDelay + Math.random() * (maxDelay - minDelay);
+          const nextAttempt = new Date(Date.now() + delayMs);
+
+          await this.storage.updateQueueItem(queueItem.id, {
+            status: 'pending',
+            attempts: queueItem.attempts + 1,
+            lastAttempt: new Date(),
+            nextAttempt,
+            error: err
+          });
+          console.log(`🔁 Re-scheduled queue item for ${client.name} in ${Math.round(delayMs/60000)} min (reason: ${err})`);
+        } else {
+          // Hard failure
+          await this.storage.updateQueueItem(queueItem.id, {
+            status: 'failed',
+            attempts: queueItem.attempts + 1,
+            lastAttempt: new Date(),
+            error: err
+          });
         }
 
-        // Update queue item with failure
-        await this.storage.updateQueueItem(queueItem.id, {
-          status: 'failed',
-          attempts: queueItem.attempts + 1,
-          lastAttempt: new Date(),
-          error: result.error
-        });
-
-        console.log(`❌ Booking failed for ${client.name}: ${result.error}`);
+        console.log(`❌ Booking not completed for ${client.name}: ${err}`);
       }
 
       await context.close();

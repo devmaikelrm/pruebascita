@@ -90,6 +90,16 @@ export class NotificationManager {
   async sendOperationalError(client: Client, message: string): Promise<void> {
     await this.sendMessage(`❗ Error operativo\n\nCliente: <b>${escapeHtml(client.name)}</b>\nDetalle: ${escapeHtml(message)}\nLa cola continúa con otros clientes.`);
   }
+
+  async sendSlotFoundManual(client: Client, office: string, service: string, url: string, screenshotPath?: string, fieldsSummary?: string): Promise<void> {
+    const summary = fieldsSummary ? `\n\nCampos detectados (resumen):\n${escapeHtml(fieldsSummary)}` : '';
+    const text = `✅ Hueco encontrado (modo descubrimiento)\n\nCliente: <b>${escapeHtml(client.name)}</b>\nTrámite: <b>${escapeHtml(service)}</b>\nOficina: <b>${escapeHtml(office)}</b>\n\nEnlace para continuar manualmente:\n${escapeHtml(url)}${summary}`;
+    if (screenshotPath) {
+      await this.sendPhoto(text, screenshotPath);
+    } else {
+      await this.sendMessage(text);
+    }
+  }
 }
 
 function escapeHtml(s: string) {

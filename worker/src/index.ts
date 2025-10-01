@@ -16,8 +16,8 @@ let isRunning = false;
 async function scheduleNextRun() {
   if (isRunning) return;
   
-  const minM = Number(process.env.CHECK_MIN_MINUTES || 6);
-  const maxM = Number(process.env.CHECK_MAX_MINUTES || 10);
+  const minM = Number(process.env.CHECK_MIN_MINUTES || process.env.CHECK_INTERVAL_MIN || 6);
+  const maxM = Number(process.env.CHECK_MAX_MINUTES || process.env.CHECK_INTERVAL_MAX || 10);
   const minDelay = Math.max(1, minM) * 60 * 1000;
   const maxDelay = Math.max(minDelay, maxM * 60 * 1000);
   const delay = minDelay + Math.random() * (maxDelay - minDelay);

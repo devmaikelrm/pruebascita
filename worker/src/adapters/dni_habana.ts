@@ -7,6 +7,8 @@ import { CaptchaManager } from '../anticaptcha.js';
 import { StorageManager } from '../storage.js';
 import { waitHuman } from '../utils.js';
 import { NotificationManager } from '../notify.js';
+import { selectFirstAvailableSlotOnBookitit } from '../slotSelect.js';
+
 
 export class DNIHabanaAdapter {
   private page: Page;
@@ -19,9 +21,9 @@ export class DNIHabanaAdapter {
   private readonly BASE_URL = process.env.WIDGET_URL || 'https://www.citaconsular.es';
 
   constructor(
-    page: Page, 
-    storage: IStorage, 
-    captchaManager: CaptchaManager, 
+    page: Page,
+    storage: IStorage,
+    captchaManager: CaptchaManager,
     storageManager: StorageManager,
     notifier: NotificationManager
   ) {
@@ -50,6 +52,28 @@ export class DNIHabanaAdapter {
           error: 'No available appointment slots found'
         };
       }
+
+      // Discovery mode? Notify and hand off manual continuation instead of auto-confirm
+      const discovery = String(process.env.DISCOVERY_MODE ?? 'true').toLowerCase() === 'true';
+      if (discovery) {
+        const screenshotBefore = await this.takeScreenshot('before', client.id);
+        const fieldsSummary = await this.extractFormFieldsSummary();
+        const url = this.page.url();
+        await this.notifier.sendSlotFoundManual(
+          client,
+          'Habana',
+          preferences?.serviceType || 'DNI',
+          url,
+          screenshotBefore,
+          fieldsSummary
+        );
+        return {
+          success: false,
+          error: 'Discovery mode - manual follow-up sent'
+        };
+      }
+
+      // Normal flow: notify, screenshot and proceed with login
       await this.notifier.sendSlotFound(client, 'Habana', preferences?.serviceType || 'DNI');
 
       // Step 4: Take screenshot before confirming
@@ -99,7 +123,7 @@ export class DNIHabanaAdapter {
         await this.notifier.sendBlockedCooldown(client, hours);
         return {
           success: false,
-          error: 'Account blocked - error-cita.aspx detected'
+          error: 'Access blocked - system error page detected'
         };
       }
 
@@ -112,60 +136,60 @@ export class DNIHabanaAdapter {
 
   private async navigateToBookingPage(): Promise<void> {
     console.log('Navigating to DNI Habana booking page...');
-    await this.page.goto(this.BASE_URL, { 
+    await this.page.goto(this.BASE_URL, {
       waitUntil: 'networkidle',
-      timeout: 30000 
+      timeout: 30000
     });
     await waitHuman(2000, 3000);
   }
 
   private async handleWelcomeModal(): Promise<void> {
     try {
-      // Try in main and all iframes
+      // Small wait to ensure overlays render
+      await waitHuman(500, 900);
+
+      const acceptRe = /aceptar|accept|continuar|continue|ok|entendido|de acuerdo|i agree|got it/i;
       const frames: (Page|Frame)[] = [this.page, ...this.page.frames()];
+
       for (const f of frames) {
-        const btn = f.getByRole('button', { name: /aceptar|accept|continuar|continue|ok/i });
-        if (await btn.first().isVisible().catch(() => false)) {
-          console.log('Welcome/consent detected, clicking continue...');
-          await btn.first().click();
+        // 1) ARIA role=button by accessible name
+        const roleBtn = f.getByRole('button', { name: acceptRe }).first();
+        if (await roleBtn.isVisible().catch(() => false)) {
+          console.log('Welcome/consent detected (role=button). Clicking...');
+          await roleBtn.click();
           await waitHuman(800, 1600);
-          break;
+          return;
+        }
+
+        // 2) Common clickable elements with matching text
+        const clickables = f
+          .locator('button, a, [role="button"], .btn, .button')
+          .filter({ hasText: acceptRe });
+        if (await clickables.first().isVisible().catch(() => false)) {
+          console.log('Welcome/consent detected (generic clickable). Clicking...');
+          await clickables.first().click();
+          await waitHuman(800, 1600);
+          return;
+        }
+
+        // 3) Fallback: any element containing the text
+        const textEl = f.getByText(acceptRe, { exact: false }).first();
+        if (await textEl.isVisible().catch(() => false)) {
+          console.log('Welcome/consent detected (text fallback). Clicking...');
+          await textEl.click().catch(() => undefined);
+          await waitHuman(800, 1600);
+          return;
         }
       }
+
+      console.log('No welcome modal/button detected.');
     } catch (error) {
       console.log('No welcome modal found or failed to handle:', error);
     }
   }
 
   private async selectFirstAvailableSlot(): Promise<boolean> {
-    console.log('Looking for available appointment slots...');
-
-    try {
-      // Quick detection of "No availability"
-      const noAvail = this.page.getByText(/no hay (citas|disponibilidad|huecos)|no slots|no availability/i);
-      if (await noAvail.first().isVisible().catch(() => false)) {
-        console.log('No available slots message visible');
-        return false;
-      }
-
-      // Generic time block pattern (HH:MM) and clickable
-      const candidates = this.page.locator('text=/^([0-2]?\\d:[0-5]\\d)$/');
-      const count = await candidates.count();
-      if (count === 0) {
-        console.log('No time blocks found');
-        return false;
-      }
-      const first = candidates.first();
-      const text = await first.textContent();
-      console.log(`Selecting first visible slot: ${text ?? 'desconocido'}`);
-      await first.click();
-      await waitHuman(1200, 1800);
-      return true;
-
-    } catch (error) {
-      console.error('Error selecting appointment slot:', error);
-      return false;
-    }
+    return await selectFirstAvailableSlotOnBookitit(this.page);
   }
 
   private async performLogin(client: Client): Promise<boolean> {
@@ -206,7 +230,7 @@ export class DNIHabanaAdapter {
   private async waitForConfirmation(): Promise<any> {
     try {
       console.log('Waiting for booking confirmation...');
-      
+
       // Wait for success text in ES or EN
       await this.page.getByText(/reserva (realizada|confirmada)|booking confirmed|reservation (successful|confirmed)/i).waitFor({ timeout: 15000 });
 
@@ -231,6 +255,35 @@ export class DNIHabanaAdapter {
     } catch (error) {
       console.error('Error waiting for confirmation:', error);
       return null;
+    }
+  }
+
+  private async extractFormFieldsSummary(): Promise<string> {
+    try {
+      const scopes: (Page | Frame)[] = [this.page, ...this.page.frames()];
+      const lines: string[] = [];
+      for (const f of scopes) {
+        const inputs = f.locator('input, select, textarea');
+        const count = await inputs.count().catch(() => 0);
+        for (let i = 0; i < Math.min(count, 12); i++) {
+          const el = inputs.nth(i);
+          const tag = await el.evaluate((n) => n.tagName.toLowerCase()).catch(() => 'el');
+          const type = (await el.getAttribute('type')) || '';
+          const name = (await el.getAttribute('name')) || '';
+          const id = (await el.getAttribute('id')) || '';
+          const placeholder = (await el.getAttribute('placeholder')) || '';
+          const labelFor = id ? await f.locator(`label[for="${id}"]`).first().textContent().catch(() => null) : null;
+          const labelNear = await el.locator('xpath=preceding::label[1]').first().textContent().catch(() => null);
+          const label = (labelFor || labelNear || '').trim();
+          const desc = [label, placeholder, name || id].filter(Boolean).slice(0, 2).join(' | ').slice(0, 80);
+          lines.push(`- ${tag}${type ? `[${type}]` : ''}: ${desc || 'sin etiqueta'}`);
+          if (lines.length >= 12) break;
+        }
+        if (lines.length >= 12) break;
+      }
+      return lines.length ? lines.join('\n') : 'No se detectaron campos de formulario visibles.';
+    } catch {
+      return 'No se pudo listar campos (error en descubrimiento).';
     }
   }
 
@@ -262,23 +315,29 @@ export class DNIHabanaAdapter {
   private async takeScreenshot(type: 'before' | 'after', clientId: string): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `dni_habana_${type}_${clientId}_${timestamp}.png`;
-    
+
     const buffer = await this.page.screenshot({ fullPage: true });
     return await this.storageManager.saveScreenshot(buffer, filename);
   }
 
   private async detectBlockingError(): Promise<boolean> {
     try {
-      // Check for error-cita.aspx or blocking indicators
+      // URL-level hint
       const url = this.page.url();
-      if (url.includes('error-cita.aspx')) {
-        return true;
+      if (url.includes('error-cita.aspx')) return true;
+
+      // Strong block indicators (cooldown-worthy)
+      const strongBlock = /Bloqueo temporal|esperar\s+hasta\s+72\s+horas|el sistema bloquea|acaparamiento|abuso de los recursos|temporarily blocked|too many requests|rate limit/i;
+
+      const scopes: (Page | Frame)[] = [this.page, ...this.page.frames()];
+      for (const f of scopes) {
+        const el = f.getByText(strongBlock).first();
+        if (await el.isVisible().catch(() => false)) return true;
       }
 
-      const blocked = this.page.getByText(/bloquead|error de sistema|system error|blocked/i);
-      return await blocked.first().isVisible().catch(() => false);
-
-    } catch (error) {
+      // Note: messages like "Inactividad" o genérico "Error en acceso" NO activan cooldown.
+      return false;
+    } catch {
       return false;
     }
   }
