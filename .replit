@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["scrot", "xvfb-run"]
+packages = ["scrot", "xvfb-run", "chromium", "chromedriver", "xorg.libX11", "xorg.libXcomposite", "xorg.libXcursor", "xorg.libXdamage", "xorg.libXext", "xorg.libXi", "xorg.libXtst"]
 
 [deployment]
 deploymentTarget = "autoscale"
