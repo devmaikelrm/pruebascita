@@ -24,7 +24,7 @@ def main():
     
     try:
         ssh.connect(hostname="91.99.171.11", username="root", key_filename="hetzner_vps_key", timeout=30)
-        print("[✓] Conectado\n")
+        print("[OK] Conectado\n")
         
         stdin, stdout, stderr = ssh.exec_command("""
 cd /opt/CitaConsulares
@@ -157,14 +157,14 @@ echo "════════════════════════�
         ssh.close()
         
         print("\n" + "="*60)
-        print("  ✓ SIMULACIÓN COMPLETADA")
+        print("  [OK] SIMULACION COMPLETADA")
         print("="*60)
-        print("\n📸 Revisa los screenshots para ver qué aparece")
+        print("\nRevisa los screenshots para ver que aparece")
         print("\n👉 Ahora dime qué debe hacer el bot después de hacer clic en 'Aceptar'")
         print("")
         
     except Exception as e:
-        print(f"[✗] Error: {e}")
+        print(f"[ERROR] Error: {e}")
         import traceback
         traceback.print_exc()
 

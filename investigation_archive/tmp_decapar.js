@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';
+const raw = process.argv[2];
+const u = new URL(raw);
+const referer = u.searchParams.get('src') ? decodeURIComponent(u.searchParams.get('src')) : 'https://www.citaconsular.es/';
+const res = await fetch(raw.replace('https://citaconsular.es','https://www.citaconsular.es'), { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': referer } });
+const txt = await res.text();
+console.log('txt length', txt.length, 'first 200:', txt.slice(0,200));
+const m = txt.match(/^\s*[^\(]+\((.*)\)\s*;?\s*$/s);
+const json = m ? m[1] : txt;
+await fs.writeFile('investigation_archive/datetime_decoded.json', json);
+console.log('json length', json.length);

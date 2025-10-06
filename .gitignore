@@ -33,3 +33,23 @@ vite.config.ts.*
 .env
 */.env
 .qodo/
+
+# Gemini/Guardian Added - Sensitive Files & Temp Files
+api tokens.txt
+hetzner_vps_key
+*.json
+*.exe
+*.zip
+*.png
+
+# Large asset directories
+videos/
+worker/videos/
+investigation_archive/persist_profile/
+
+# Large file types
+*.webm
+*.har
+
+# Temp ssh keys
+tmp_ssh/

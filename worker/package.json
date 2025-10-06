@@ -12,7 +12,7 @@
     "discover": "tsx src/descubrir_api.ts",
     "test-api": "tsx src/api_client.ts",
     "run-client": "tsx src/jsonp_client.ts",
-    "final-test": "tsx src/final_test.ts",
+    "final-test": "tsx ../investigation_archive/final_test.ts",
     "test-service": "tsx src/api_service.ts",
     "get-cookie": "tsx src/get_cookie.ts",
     "prebuild": "rimraf dist"

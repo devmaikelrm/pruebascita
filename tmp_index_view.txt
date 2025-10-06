@@ -1,0 +1,124 @@
+import TelegramBot from 'node-telegram-bot-api'
+import dotenv from 'dotenv'
+import { TelegramCommands } from './commands.js'
+import { startDisponibilidadWatcher } from './disponibilidad.js'
+
+dotenv.config()
+
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const ADMIN_CHAT_1 = process.env.TELEGRAM_ADMIN_CHAT
+const ADMIN_CHAT_2 = process.env.TELEGRAM_ADMIN_CHAT_2
+const ADMIN_CHAT_LIST = process.env.TELEGRAM_ADMIN_CHAT_LIST // optional comma-separated
+
+const allowedIds = new Set<string>()
+if (ADMIN_CHAT_LIST) ADMIN_CHAT_LIST.split(',').map((s) => s.trim()).filter(Boolean).forEach((id) => allowedIds.add(id))
+if (ADMIN_CHAT_1) allowedIds.add(ADMIN_CHAT_1)
+if (ADMIN_CHAT_2) allowedIds.add(ADMIN_CHAT_2)
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.error('TELEGRAM_BOT_TOKEN environment variable is required')
+  process.exit(1)
+}
+
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true })
+bot.on('polling_error', (err) => console.error('Polling error:', err instanceof Error ? err.message : err))
+// @ts-ignore
+bot.on('webhook_error', (err) => console.error('Webhook error:', err instanceof Error ? err.message : err))
+
+let commands: TelegramCommands | null = null
+let storage: any = null
+if (process.env.DATABASE_URL) {
+  try {
+    const m = await import('./storage.js')
+    storage = m.storage
+    commands = new TelegramCommands(bot, storage)
+  } catch (e) {
+    console.warn('[BOT] No storage available. Commands requiring DB disabled.')
+  }
+} else {
+  console.warn('[BOT] DATABASE_URL not set. Running watcher-only mode.')
+}
+console.log('Spanish Consular Bot starting...')
+
+bot.setMyCommands([
+  { command: 'start', description: 'Welcome message and registration' },
+  { command: 'operador', description: 'Register as an operator' },
+  { command: 'cliente', description: 'Manage clients' },
+  { command: 'preferencia', description: 'Set client preferences' },
+  { command: 'status', description: 'Check system status' },
+  { command: 'captcha', description: 'Solve captcha challenges' },
+  { command: 'queue', description: 'Check appointment queue' },
+  { command: 'help', description: 'Show available commands' },
+])
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id
+  const text = msg.text
+  if (!text) return
+
+  if (allowedIds.size > 0 && !allowedIds.has(chatId.toString())) {
+    if (text.startsWith('/start')) await bot.sendMessage(chatId, `Acceso restringido. Tu Telegram chat ID es: ${chatId}`)
+    return
+  }
+  try {
+    if (!commands) {
+      if (text.startsWith('/start')) await bot.sendMessage(chatId, 'Bot en modo watcher (sin DB).');
+      return
+    }
+    if (text.startsWith('/start') || text.startsWith('/help')) { await commands.handleCommand(msg, undefined); return }
+    const operator = await storage.getOperatorByTelegramId(chatId.toString())
+    if (!operator && !text.startsWith('/operador')) { await bot.sendMessage(chatId, 'Necesitas registrarte como operador. Usa /operador'); return }
+    if (text.startsWith('/')) await commands.handleCommand(msg, operator); else await commands.handleMessage(msg, operator)
+  } catch (error) {
+    console.error('Error handling message:', error)
+    await bot.sendMessage(chatId, 'Ocurrió un error. Intenta de nuevo.')
+  }
+})
+
+bot.on('callback_query', async (query) => {
+  if (allowedIds.size > 0 && !allowedIds.has(query.from.id.toString())) return
+  try {
+    if (!commands) { await bot.answerCallbackQuery(query.id, { text: 'DB no configurada' }); return }
+    const operator = await storage.getOperatorByTelegramId(query.from.id.toString())
+    if (!operator) { await bot.answerCallbackQuery(query.id, { text: 'Access denied' }); return }
+    await commands.handleCallback(query, operator)
+  } catch (error) {
+    console.error('Error handling callback:', error)
+    await bot.answerCallbackQuery(query.id, { text: 'Error occurred' })
+  }
+})
+
+process.on('SIGTERM', () => { console.log('Bot shutting down gracefully...'); bot.stopPolling(); process.exit(0) })
+process.on('SIGINT', () => { console.log('Bot shutting down gracefully...'); bot.stopPolling(); process.exit(0) })
+
+console.log('Spanish Consular Bot is running! ✅')
+
+if (process.env.DISPO_ENABLED === '1') {
+  const recipients: number[] = []
+  if (process.env.DISPO_RECIPIENTS) for (const id of process.env.DISPO_RECIPIENTS.split(',').map(s=>s.trim()).filter(Boolean)) { const n = Number(id); if (Number.isFinite(n)) recipients.push(n) }
+  if (process.env.TELEGRAM_ADMIN_CHAT_LIST) for (const id of process.env.TELEGRAM_ADMIN_CHAT_LIST.split(',').map(s=>s.trim()).filter(Boolean)) { const n = Number(id); if (Number.isFinite(n)) recipients.push(n) }
+  if (process.env.TELEGRAM_ADMIN_CHAT) { const n = Number(process.env.TELEGRAM_ADMIN_CHAT); if (Number.isFinite(n)) recipients.push(n) }
+  if (process.env.TELEGRAM_ADMIN_CHAT_2) { const n = Number(process.env.TELEGRAM_ADMIN_CHAT_2); if (Number.isFinite(n)) recipients.push(n) }
+  const uniqueRecipients = Array.from(new Set(recipients))
+  if (uniqueRecipients.length === 0) {
+    console.warn('[DISPO] No recipients configured. Watcher not started.')
+  } else {
+    const cfg = {
+      publicKey: process.env.DISPO_PUBLICKEY || '',
+      serviceId: process.env.DISPO_SERVICE || '',
+      agendaId: process.env.DISPO_AGENDA || '',
+      src: process.env.DISPO_SRC || '',
+      srvsrc: process.env.DISPO_SRVSRC || 'https://citaconsular.es',
+      days: Number(process.env.DISPO_DAYS || '0'),
+      months: Number(process.env.DISPO_MONTHS || '6'),
+      intervalSec: Number(process.env.DISPO_INTERVAL_SEC || '60'),
+      jitterPct: Number(process.env.DISPO_JITTER_PCT || '0.2'),
+    }
+    if (!cfg.publicKey || !cfg.serviceId || !cfg.agendaId) {
+      console.warn('[DISPO] Missing DISPO_PUBLICKEY / DISPO_SERVICE / DISPO_AGENDA. Watcher not started.')
+    } else {
+      console.log('[DISPO] Starting watcher: interval', cfg.intervalSec, 'sec, days', cfg.days)
+      startDisponibilidadWatcher(bot, uniqueRecipients, cfg)
+    }
+  }
+}

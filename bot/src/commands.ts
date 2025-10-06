@@ -4,6 +4,7 @@ import type { IStorage } from '@repo/shared/storage';
 import { exec as _exec } from 'child_process';
 import { promisify } from 'util';
 const exec = promisify(_exec);
+import { setWatcherVerbose, getWatcherVerbose } from './disponibilidad.js';
 
 export class TelegramCommands {
   private bot: TelegramBot;
@@ -46,11 +47,11 @@ export class TelegramCommands {
       case '/video':
         await this.handleTestCommand(chatId, operator);
         break;
-      case '/prueba':
-        await this.handleTestCommand(chatId, operator);
-        break;
-      case '/prueba':\n        await this.handleTestCommand(chatId, operator);\n        break;\n      case '/video':\n        await this.handleTestCommand(chatId, operator);\n        break;\n      case '/help':
+      case '/help':
         await this.handleHelpCommand(chatId);
+        break;
+      case '/span':
+        await this.handleSpanCommand(chatId, msg.text || '');
         break;
       default:
         await this.bot.sendMessage(chatId, '❌ Unknown command. Use /help to see available commands.');
@@ -210,6 +211,23 @@ To get started, please register as an operator using /operador
       console.error('Error fetching status:', error);
       await this.bot.sendMessage(chatId, '❌ Error fetching system status.');
     }
+  }
+
+  private async handleSpanCommand(chatId: number, raw: string): Promise<void> {
+    const parts = raw.trim().split(/\s+/);
+    const sub = (parts[1] || '').toLowerCase();
+    if (sub === 'on' || sub === 'off') {
+      const want = sub === 'on';
+      setWatcherVerbose(want);
+      await this.bot.sendMessage(chatId, want
+        ? '✅ Verbosidad activada: se enviará “No hay citas” en cada comprobación.'
+        : '✅ Verbosidad desactivada: solo se avisará cuando haya nuevas citas o errores.');
+      return;
+    }
+    const current = getWatcherVerbose();
+    await this.bot.sendMessage(chatId,
+      `ℹ️ Estado actual de verbosidad: ${current ? 'ON' : 'OFF'}\n`+
+      `Usa /span on para activar, /span off para desactivar.`);
   }
 
   private async handleTestCommand(chatId: number, operator: Operator | undefined): Promise<void> {
